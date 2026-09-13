@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador de Gás Ideal - PV = nRT</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      background-color: #f4f4f9;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    #container {
+      display: flex;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    canvas {
+      background: #fafafa;
+    }
+    #controles {
+      width: 220px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      background: #ffffff;
+      border-left: 1px solid #ddd;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    label {
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+    }
+    input[type=range] {
+      width: 100%;
+    }
+    #pressaoLabel {
+      margin-top: 15px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #1e88e5;
+    }
+  </style>
+</head>
+<body>
+
+<div id="container">
+  <canvas id="simCanvas" width="600" height="450"></canvas>
+  <div id="controles">
+    <div class="control-group">
+      <label for="temp">Temperatura (K): <span id="valTemp">300</span></label>
+      <input type="range" id="temp" min="100" max="600" value="300">
+    </div>
+    
+    <div class="control-group">
+      <label for="vol">Volume (L): <span id="valVol">5.0</span></label>
+      <input type="range" id="vol" min="2" max="10" step="0.1" value="5.0">
+    </div>
+    
+    <div class="control-group">
+      <label for="mols">Mols (n): <span id="valMols">2</span></label>
+      <input type="range" id="mols" min="1" max="5" value="2">
+    </div>
+
+    <div id="pressaoLabel">Pressão (P): 9.85 atm</div>
+  </div>
+</div>
+
+<script>
+  const R = 0.0821;
+  let temperatura = 300;
+  let volume = 5.0;
+  let mols = 2;
+
+  const canvas = document.getElementById('simCanvas');
+  const gc = canvas.getContext('2d');
+
+  const inputTemp = document.getElementById('temp');
+  const inputVol = document.getElementById('vol');
+  const inputMols = document.getElementById('mols');
+
+  const valTemp = document.getElementById('valTemp');
+  const valVol = document.getElementById('valVol');
+  const valMols = document.getElementById('valMols');
+  const pressaoLabel = document.getElementById('pressaoLabel');
+
+  class Particula {
+    constructor(minX, minY, largura, altura) {
+      this.x = minX + Math.random() * (largura - 10);
+      this.y = minY + Math.random() * (altura - 10);
+      let angulo = Math.random() * Math.PI * 2;
+      this.dirX = Math.cos(angulo);
+      this.dirY = Math.sin(angulo);
+    }
+
+    atualizar(xInicial, yInicial, largura, altura, velocidadeFator) {
+      this.x += this.dirX * velocidadeFator;
+      this.y += this.dirY * velocidadeFator;
+
+      // Colisão com as paredes
+      if (this.x <= xInicial) {
+        this.x = xInicial;
+        this.dirX *= -1;
+      } else if (this.x >= xInicial + largura - 8) {
+        this.x = xInicial + largura - 8;
+        this.dirX *= -1;
+      }
+
+      if (this.y <= yInicial) {
+        this.y = yInicial;
+        this.dirY *= -1;
+      } else if (this.y >= yInicial + altura - 8) {
+        this.y = yInicial + altura - 8;
+        this.dirY *= -1;
+      }
+    }
+  }
+
+  let particulas = [];
+
+  function atualizarNumeroParticulas() {
+    let totalParticulas = mols * 20;
+    const larguraCaixa = 150 + (volume * 35);
+    const alturaCaixa = 300;
+    const xInicial = (canvas.width - larguraCaixa) / 2;
+    const yInicial = (canvas.height - alturaCaixa) / 2;
+
+    while (particulas.length < totalParticulas) {
+      particulas.push(new Particula(xInicial, yInicial, larguraCaixa, alturaCaixa));
+    }
+    while (particulas.length > totalParticulas) {
+      particulas.pop();
+    }
+  }
+
+  inputTemp.addEventListener('input', (e) => {
+    temperatura = parseFloat(e.target.value);
+    valTemp.textContent = temperatura;
+  });
+
+  inputVol.addEventListener('input', (e) => {
+    volume = parseFloat(e.target.value);
+    valVol.textContent = volume.toFixed(1);
+    atualizarNumeroParticulas();
+  });
+
+  inputMols.addEventListener('input', (e) => {
+    mols = parseInt(e.target.value);
+    valMols.textContent = mols;
+    atualizarNumeroParticulas();
+  });
+
+  atualizarNumeroParticulas();
+
+  function loop() {
+    // Cálculo da Pressão: P = nRT / V
+    let pressao = (mols * R * temperatura) / volume;
+    pressaoLabel.textContent = `Pressão (P): ${pressao.toFixed(2)} atm`;
+
+    // Desenho
+    gc.clearRect(0, 0, canvas.width, canvas.height);
+
+    let larguraCaixa = 150 + (volume * 35);
+    let alturaCaixa = 300;
+    let xInicial = (canvas.width - larguraCaixa) / 2;
+    let yInicial = (canvas.height - alturaCaixa) / 2;
+
+    // Desenha o Recipiente
+    gc.strokeStyle = "#a0a0a0";
+    gc.lineWidth = 4;
+    gc.strokeRect(xInicial, yInicial, larguraCaixa, alturaCaixa);
+
+    // Velocidade baseada na temperatura
+    let velocidadeFator = Math.sqrt(temperatura / 300.0) * 2.5;
+
+    // Desenha as partículas
+    gc.fillStyle = "#1e88e5";
+    for (let p of particulas) {
+      p.atualizar(xInicial, yInicial, larguraCaixa, alturaCaixa, velocidadeFator);
+      gc.beginPath();
+      gc.arc(p.x + 4, p.y + 4, 4, 0, Math.PI * 2);
+      gc.fill();
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+</script>
+</body>
+</html>
